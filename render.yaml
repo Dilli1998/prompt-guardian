@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: prompt-guardian
+    runtime: python
+    buildCommand: pip install -r backend/requirements.txt
+    startCommand: uvicorn backend.main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: USE_REAL_OPENAI
+        value: "0"
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: OPENAI_MODEL
+        value: "gpt-4.1-mini"
