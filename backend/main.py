@@ -11,9 +11,10 @@ from .llm_client import (
     compare_answer_impact,
     compress_prompt,
     real_mode_enabled,
+    run_guardian_agent,
     verify_equivalence,
 )
-from .utils import count_tokens, guardian_agent_review, rule_based_clean, savings_summary
+from .utils import count_tokens, rule_based_clean, savings_summary
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -111,7 +112,7 @@ def answer_impact(request: AnswerImpactRequest):
 
 @app.post("/guardian-agent/review")
 def guardian_agent(request: GuardianAgentRequest):
-    return guardian_agent_review(request.prompt, request.context)
+    return run_guardian_agent(request.prompt, request.context)
 
 
 @app.get("/agent-demo/meta")

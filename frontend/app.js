@@ -105,6 +105,7 @@ async function runGuardianReview() {
     });
     $("guardianDecision").textContent = data.decision;
     $("guardianRisk").textContent = `Risk: ${data.risk_level}`;
+    $("guardianMode").textContent = `Mode: ${data.mode}`;
     $("guardianReasoning").textContent = data.reasoning_summary;
     $("guardianActions").innerHTML = "";
     for (const action of data.actions) {
