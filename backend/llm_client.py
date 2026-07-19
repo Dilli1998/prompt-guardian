@@ -5,7 +5,7 @@ from openai import OpenAI
 from openai import OpenAIError
 from dotenv import load_dotenv
 
-from .utils import stub_compress, verify_similarity
+from .utils import stub_answer_impact, stub_compress, verify_similarity
 
 
 load_dotenv()
@@ -102,3 +102,37 @@ def verify_equivalence(original: str, compressed: str) -> dict:
         "confidence": int(data.get("confidence", 0)),
         "differences": list(data.get("differences", [])),
     }
+
+
+def compare_answer_impact(original: str, compressed: str) -> dict:
+    if not real_mode_enabled():
+        return {**stub_answer_impact(original, compressed), "mode": "stub"}
+
+    model = os.getenv("OPENAI_MODEL", "gpt-4.1-mini")
+    instructions = (
+        "You compare whether two prompts would cause an LLM to produce materially "
+        "the same answer. Return strict JSON with keys: same_answer_likely boolean, "
+        "score integer 0-100, original_preview string, compressed_preview string, "
+        "risks array of strings, added_behavior array of strings."
+    )
+    try:
+        response = _client().responses.create(
+            model=model,
+            instructions=instructions,
+            input=f"Original prompt:\n{original}\n\nCompressed prompt:\n{compressed}",
+        )
+        data = json.loads(response.output_text)
+        return {
+            "same_answer_likely": bool(data.get("same_answer_likely", False)),
+            "score": int(data.get("score", 0)),
+            "original_preview": str(data.get("original_preview", "")),
+            "compressed_preview": str(data.get("compressed_preview", "")),
+            "risks": list(data.get("risks", [])),
+            "added_behavior": list(data.get("added_behavior", [])),
+            "mode": "real-openai",
+        }
+    except (OpenAIError, json.JSONDecodeError) as exc:
+        data = stub_answer_impact(original, compressed)
+        data["mode"] = "openai-fallback"
+        data["risks"].append(f"OpenAI answer-impact fallback: {exc.__class__.__name__}")
+        return data

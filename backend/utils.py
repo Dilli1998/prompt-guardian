@@ -110,6 +110,106 @@ def verify_similarity(original: str, compressed: str) -> dict:
     }
 
 
+def response_signature(prompt: str) -> dict:
+    text = prompt.lower()
+    traits = []
+    if any(word in text for word in ["plan", "steps", "stepwise", "step by step"]):
+        traits.append("step-by-step plan")
+    if any(word in text for word in ["json", "schema", "structured"]):
+        traits.append("structured output")
+    if any(word in text for word in ["concise", "brief", "short"]):
+        traits.append("concise answer")
+    if any(word in text for word in ["detailed", "comprehensive", "explain"]):
+        traits.append("detailed explanation")
+    if any(word in text for word in ["backend", "api", "endpoint", "fastapi"]):
+        traits.append("backend/API coverage")
+    if any(word in text for word in ["frontend", "ui", "javascript", "browser"]):
+        traits.append("frontend/UI coverage")
+    if any(word in text for word in ["readme", "docs", "documentation"]):
+        traits.append("documentation coverage")
+    if any(word in text for word in ["pitch", "demo", "hackathon"]):
+        traits.append("demo/pitch coverage")
+    return {
+        "traits": traits or ["general answer"],
+        "preview": "Expected answer includes: " + ", ".join(traits or ["general answer"]),
+    }
+
+
+def stub_answer_impact(original: str, compressed: str) -> dict:
+    original_signature = response_signature(original)
+    compressed_signature = response_signature(compressed)
+    original_traits = set(original_signature["traits"])
+    compressed_traits = set(compressed_signature["traits"])
+    missing = sorted(original_traits - compressed_traits)
+    added = sorted(compressed_traits - original_traits)
+    overlap = len(original_traits & compressed_traits)
+    total = max(1, len(original_traits | compressed_traits))
+    score = int((overlap / total) * 100)
+    return {
+        "same_answer_likely": score >= 75,
+        "score": score,
+        "original_preview": original_signature["preview"],
+        "compressed_preview": compressed_signature["preview"],
+        "risks": [f"Compressed prompt may omit: {item}" for item in missing],
+        "added_behavior": added,
+    }
+
+
+def guardian_agent_review(prompt: str, context: str = "") -> dict:
+    cleaned = rule_based_clean(prompt)
+    compressed = stub_compress(cleaned)
+    metrics = savings_summary(prompt, compressed)
+    verification = verify_similarity(prompt, compressed)
+    answer_impact = stub_answer_impact(prompt, compressed)
+
+    context_blocks = [block.strip() for block in re.split(r"\n{2,}", context) if block.strip()]
+    seen_blocks = set()
+    duplicate_blocks = []
+    for block in context_blocks:
+        key = block.lower()
+        if key in seen_blocks:
+            duplicate_blocks.append(block)
+        seen_blocks.add(key)
+
+    actions = []
+    if metrics["saved_tokens"] > 0:
+        actions.append("compress_prompt")
+    if duplicate_blocks:
+        actions.append("compact_context")
+    if verification["confidence"] < 75 or not answer_impact["same_answer_likely"]:
+        actions.append("warn_reviewer")
+    if not actions:
+        actions.append("allow")
+
+    if "warn_reviewer" in actions:
+        decision = "warn"
+        risk_level = "medium"
+    elif "compact_context" in actions or "compress_prompt" in actions:
+        decision = "optimize"
+        risk_level = "low"
+    else:
+        decision = "allow"
+        risk_level = "low"
+
+    return {
+        "agent_name": "Prompt Guardian Agent",
+        "decision": decision,
+        "risk_level": risk_level,
+        "actions": actions,
+        "reasoning_summary": (
+            f"Found {metrics['saved_tokens']} prompt tokens available for savings, "
+            f"{len(duplicate_blocks)} duplicate context blocks, "
+            f"{verification['confidence']}% meaning confidence, and "
+            f"{answer_impact['score']}% answer-impact score."
+        ),
+        "optimized_prompt": compressed,
+        "metrics": metrics,
+        "verification": verification,
+        "answer_impact": answer_impact,
+        "duplicate_context_blocks": duplicate_blocks,
+    }
+
+
 def savings_summary(original: str, compressed: str) -> dict:
     original_tokens = count_tokens(original)
     compressed_tokens = count_tokens(compressed)
@@ -125,4 +225,3 @@ def savings_summary(original: str, compressed: str) -> dict:
         "compressed_cost": round(compressed_cost, 6),
         "cost_saved": round(max(0, original_cost - compressed_cost), 6),
     }
-
