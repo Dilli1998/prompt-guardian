@@ -20,22 +20,69 @@
         </div>
       </section>
 
+      <section class="agent-panel">
+        <div class="panel-head">
+          <div>
+            <p class="eyebrow">Autonomous review layer</p>
+            <h2>Prompt Guardian Agent</h2>
+          </div>
+          <button id="guardianBtn">Run Agent Review</button>
+        </div>
+        <div class="guardian-layout">
+          <div class="decision-card">
+            <small>Decision</small>
+            <strong id="guardianDecision">Waiting</strong>
+            <span id="guardianRisk">Risk: -</span>
+          </div>
+          <div>
+            <strong>Agent reasoning</strong>
+            <p id="guardianReasoning">Run a review to let the agent decide whether to allow, optimize, or warn.</p>
+          </div>
+          <div>
+            <strong>Actions</strong>
+            <div id="guardianActions" class="action-chips">No actions yet.</div>
+          </div>
+        </div>
+      </section>
+
       <section class="grid">
         <div class="panel">
           <div class="panel-head">
             <h2>Prompt Compression</h2>
             <button id="compressBtn">Compress</button>
           </div>
+          <div class="samples" aria-label="Sample prompts">
+            <button class="ghost sample" data-sample="architect">Architecture prompt</button>
+            <button class="ghost sample" data-sample="agent">Agent prompt</button>
+            <button class="ghost sample" data-sample="judge">Judge prompt</button>
+          </div>
           <textarea id="promptInput">You are an expert software architect. Please provide a comprehensive and detailed plan step by step for building a small FastAPI and vanilla JavaScript hackathon demo. Make sure to include backend endpoints, frontend states, README instructions, and a concise pitch script. Please provide a comprehensive and detailed plan step by step for building a small FastAPI and vanilla JavaScript hackathon demo.</textarea>
+          <div class="pipeline">
+            <div class="pipeline-step active" id="stageClean">Clean</div>
+            <div class="pipeline-step" id="stageCompress">Compress</div>
+            <div class="pipeline-step" id="stageVerify">Verify</div>
+            <div class="pipeline-step" id="stageReport">Report</div>
+          </div>
           <div class="metrics">
             <div><span id="originalTokens">-</span><small>Original tokens</small></div>
             <div><span id="compressedTokens">-</span><small>Compressed tokens</small></div>
-            <div><span id="savedTokens">-</span><small>Saved tokens</small></div>
-            <div><span id="savingsPercent">-</span><small>Savings</small></div>
+            <div><span id="savedTokens">-</span><small>Prompt tokens saved</small></div>
+            <div><span id="savingsPercent">-</span><small>Prompt savings</small></div>
+          </div>
+          <div class="impact">
+            <strong id="impactLine">Run compression to calculate the impact.</strong>
+            <span id="costSaved">Cost saved: -</span>
           </div>
           <div class="result">
-            <h3>Compressed Prompt</h3>
+            <div class="result-title">
+              <h3>Compressed Prompt</h3>
+              <span id="resultMode">Waiting</span>
+            </div>
             <pre id="compressedOutput">Run compression to see the result.</pre>
+          </div>
+          <div class="diff-box">
+            <h3>What Prompt Guardian Removed</h3>
+            <div id="removedTerms" class="removed-terms">Nothing analyzed yet.</div>
           </div>
           <div class="confidence">
             <div class="confidence-top">
@@ -45,18 +92,45 @@
             <div class="bar"><span id="confidenceBar"></span></div>
             <ul id="differences"></ul>
           </div>
+          <div class="answer-impact">
+            <div class="result-title">
+              <h3>Answer Impact Check</h3>
+              <button class="ghost" id="impactBtn" disabled>Check</button>
+            </div>
+            <div class="impact-score">
+              <span id="answerScore">-</span>
+              <small id="answerVerdict">Compress first to compare expected answers.</small>
+            </div>
+            <div class="answer-grid">
+              <div>
+                <strong>Original would produce</strong>
+                <p id="originalPreview">-</p>
+              </div>
+              <div>
+                <strong>Compressed would produce</strong>
+                <p id="compressedPreview">-</p>
+              </div>
+            </div>
+            <ul id="answerRisks"></ul>
+          </div>
         </div>
 
         <div class="panel">
           <div class="panel-head">
             <h2>Agent Context Demo</h2>
-            <button id="nextStepBtn">Next Step</button>
+            <div class="actions">
+              <button class="ghost" id="autoRunBtn">Auto Run</button>
+              <button id="nextStepBtn">Next Step</button>
+            </div>
+          </div>
+          <div class="context-meter">
+            <span id="contextMeter"></span>
           </div>
           <div class="agent-stats">
             <div><span id="stepCount">0/5</span><small>Step</small></div>
             <div><span id="contextTokens">0</span><small>Context tokens</small></div>
             <div><span id="compactedTokens">0</span><small>Compacted tokens</small></div>
-            <div><span id="agentSaved">0</span><small>Saved</small></div>
+            <div><span id="agentSaved">0</span><small>Context tokens saved</small></div>
           </div>
           <ol id="agentLog" class="agent-log"></ol>
           <div id="duplicateNotice" class="notice">No duplicate context detected yet.</div>
@@ -66,4 +140,3 @@
     <script src="/static/app.js"></script>
   </body>
 </html>
-

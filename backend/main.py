@@ -8,11 +8,12 @@ from pydantic import BaseModel, Field
 
 from .llm_client import (
     check_openai_connection,
+    compare_answer_impact,
     compress_prompt,
     real_mode_enabled,
     verify_equivalence,
 )
-from .utils import count_tokens, rule_based_clean, savings_summary
+from .utils import count_tokens, guardian_agent_review, rule_based_clean, savings_summary
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -34,6 +35,16 @@ class CompressRequest(BaseModel):
 
 class AgentStepRequest(BaseModel):
     step: int = Field(ge=1, le=5)
+
+
+class AnswerImpactRequest(BaseModel):
+    original: str = Field(min_length=1)
+    compressed: str = Field(min_length=1)
+
+
+class GuardianAgentRequest(BaseModel):
+    prompt: str = Field(min_length=1)
+    context: str = ""
 
 
 AGENT_STEPS = [
@@ -91,6 +102,16 @@ def compress(request: CompressRequest):
         "verification": verification,
         "mode": "openai-fallback" if used_fallback else "real-openai" if real_mode_enabled() else "stub",
     }
+
+
+@app.post("/answer-impact")
+def answer_impact(request: AnswerImpactRequest):
+    return compare_answer_impact(request.original, request.compressed)
+
+
+@app.post("/guardian-agent/review")
+def guardian_agent(request: GuardianAgentRequest):
+    return guardian_agent_review(request.prompt, request.context)
 
 
 @app.get("/agent-demo/meta")
