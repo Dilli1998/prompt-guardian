@@ -5,7 +5,12 @@ from openai import OpenAI
 from openai import OpenAIError
 from dotenv import load_dotenv
 
-from .utils import stub_answer_impact, stub_compress, verify_similarity
+from .utils import (
+    guardian_agent_review as stub_guardian_agent_review,
+    stub_answer_impact,
+    stub_compress,
+    verify_similarity,
+)
 
 
 load_dotenv()
@@ -135,4 +140,54 @@ def compare_answer_impact(original: str, compressed: str) -> dict:
         data = stub_answer_impact(original, compressed)
         data["mode"] = "openai-fallback"
         data["risks"].append(f"OpenAI answer-impact fallback: {exc.__class__.__name__}")
+        return data
+
+
+def run_guardian_agent(prompt: str, context: str = "") -> dict:
+    if not real_mode_enabled():
+        data = stub_guardian_agent_review(prompt, context)
+        data["mode"] = "stub-agent"
+        return data
+
+    model = os.getenv("OPENAI_MODEL", "gpt-4.1-mini")
+    instructions = (
+        "You are Prompt Guardian Agent, an autonomous agent that reviews an LLM "
+        "prompt and optional accumulated agent context. Decide whether to allow it, "
+        "optimize it, warn the user, or block it. Look for prompt verbosity, repeated "
+        "instructions, missing constraints after compression, and duplicated context. "
+        "Return strict JSON with keys: agent_name string, decision string one of "
+        "allow/optimize/warn/block, risk_level string one of low/medium/high, "
+        "actions array of short snake_case strings, reasoning_summary string, "
+        "optimized_prompt string, duplicate_context_blocks array of strings."
+    )
+    try:
+        response = _client().responses.create(
+            model=model,
+            instructions=instructions,
+            input=f"Prompt:\n{prompt}\n\nAccumulated context:\n{context or '(none)'}",
+        )
+        data = json.loads(response.output_text)
+        fallback = stub_guardian_agent_review(prompt, context)
+        optimized_prompt = str(data.get("optimized_prompt") or fallback["optimized_prompt"])
+        verification = verify_equivalence(prompt, optimized_prompt)
+        answer_impact = compare_answer_impact(prompt, optimized_prompt)
+        return {
+            "agent_name": str(data.get("agent_name", "Prompt Guardian Agent")),
+            "decision": str(data.get("decision", "optimize")),
+            "risk_level": str(data.get("risk_level", "low")),
+            "actions": list(data.get("actions", fallback["actions"])),
+            "reasoning_summary": str(data.get("reasoning_summary", fallback["reasoning_summary"])),
+            "optimized_prompt": optimized_prompt,
+            "metrics": fallback["metrics"],
+            "verification": verification,
+            "answer_impact": answer_impact,
+            "duplicate_context_blocks": list(
+                data.get("duplicate_context_blocks", fallback["duplicate_context_blocks"])
+            ),
+            "mode": "real-openai-agent",
+        }
+    except (OpenAIError, json.JSONDecodeError) as exc:
+        data = stub_guardian_agent_review(prompt, context)
+        data["mode"] = "openai-agent-fallback"
+        data["reasoning_summary"] += f" OpenAI agent fallback: {exc.__class__.__name__}."
         return data
